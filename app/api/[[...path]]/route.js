@@ -268,18 +268,15 @@ Respond in JSON format:
     })
 
   } catch (error) {
-    console.error('AI detect error:', error)
+    console.error('AI detect error:', error.message || error)
     
-    // Fallback to rule-based on error
-    const body = await request.json()
-    const { quickResults, features } = body
-    
+    // Fallback to rule-based on error (body already parsed earlier)
     if (quickResults && quickResults.length > 0) {
       return NextResponse.json({
         success: true,
         technique: quickResults[0].technique,
         confidence: quickResults[0].confidence,
-        reasoning: 'AI unavailable, rule-based detection',
+        reasoning: 'AI unavailable, using rule-based detection',
         alternativePredictions: quickResults.slice(1, 3),
         features,
         method: 'rule-based-fallback',
