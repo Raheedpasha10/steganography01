@@ -85,6 +85,9 @@ export default function DecodePage() {
       // Try all techniques and get confidence scores
       const results = []
       for (const [key, { module, name }] of Object.entries(TECHNIQUES)) {
+        // First check if technique's detect() function thinks this is its encoding
+        const detection = module.detect ? module.detect(encodedText) : { detected: false, confidence: 0 }
+        
         // Try BOTH compressed and uncompressed (we don't know which was used)
         const attempts = [
           { compressed: false, label: 'uncompressed' },
@@ -95,15 +98,20 @@ export default function DecodePage() {
           const result = module.decode(encodedText, attempt)
           
           if (result.success && result.message && result.message.trim().length > 0) {
-            // Calculate confidence based on message quality
+            // Calculate confidence based on BOTH detection pattern AND message quality
             const hasValidChars = /^[\x20-\x7E\s]+$/.test(result.message)
             const hasWords = result.message.split(/\s+/).filter(w => w.length > 2).length > 0
             const noWeirdChars = !/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F-\x9F]/.test(result.message)
             
-            // Higher confidence for clean, readable messages
-            let confidence = 0.3
-            if (hasValidChars && noWeirdChars) confidence = 0.6
-            if (hasValidChars && hasWords && noWeirdChars) confidence = 0.8
+            // Base confidence from detection pattern (most important!)
+            let confidence = detection.detected ? detection.confidence : 0.1
+            
+            // Boost confidence for clean, readable messages
+            if (hasValidChars && noWeirdChars) confidence += 0.1
+            if (hasValidChars && hasWords && noWeirdChars) confidence += 0.1
+            
+            // Cap at 0.95
+            confidence = Math.min(0.95, confidence)
             
             results.push({
               technique: key,
@@ -111,7 +119,8 @@ export default function DecodePage() {
               message: result.message,
               confidence,
               metadata: result.metadata,
-              compressionUsed: attempt.compressed
+              compressionUsed: attempt.compressed,
+              patternDetected: detection.detected
             })
           }
         }
